@@ -1,0 +1,53 @@
+package com.intuit.parent.domain;
+
+import com.fasterxml.jackson.databind.MappingIterator;
+import com.fasterxml.jackson.databind.ObjectReader;
+import com.fasterxml.jackson.dataformat.csv.CsvMapper;
+import com.fasterxml.jackson.dataformat.csv.CsvSchema;
+import com.intuit.parent.domain.dto.PlayerDetails;
+import com.intuit.parent.domain.dto.PlayerResponseRecord;
+import org.springframework.stereotype.Service;
+
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+
+@Service
+public class ReadPlayerServiceImpl implements ReadPlayerService {
+
+    private final static String FILE_NAME = "domain/src/main/resources/player.csv";
+    private final HashMap<String, PlayerDetails> playerIdToDetails;
+
+    public ReadPlayerServiceImpl() {
+        this.playerIdToDetails = new HashMap<>();
+        CsvMapper csvMapper = new CsvMapper();
+        CsvSchema schema = CsvSchema.emptySchema().withHeader();
+        ObjectReader oReader = csvMapper.readerFor(PlayerDetails.class).with(schema);
+        try (BufferedReader br = new BufferedReader(new FileReader(FILE_NAME))) {
+            MappingIterator<PlayerDetails> mi = oReader.readValues(br);
+            while (mi.hasNext()) {
+                PlayerDetails currentPlayer = mi.next();
+                playerIdToDetails.putIfAbsent(currentPlayer.getPlayerID(), currentPlayer);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public List<PlayerResponseRecord> getPlayers() {
+        List<PlayerResponseRecord> playerList = new ArrayList<>();
+        for (PlayerDetails currentPlayer : playerIdToDetails.values()) {
+            playerList.add(new PlayerResponseRecord(currentPlayer));
+        }
+        return playerList;
+    }
+
+    @Override
+    public PlayerResponseRecord getPlayerById(String playerId) {
+        return new PlayerResponseRecord(playerIdToDetails.get(playerId));
+    }
+}
